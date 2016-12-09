@@ -1,12 +1,20 @@
 
 rm(list = ls())
 
+####  Code to replicate the results in Table 1
+
+
+## post change mean
 mu_c = .3;
+## pre change mean
 mu = 0
 
+##  standard deviation of the pre change distirbution
 sigma= 6
+##  standard deviation of the post change distirbution
 sigma_c = 6
 
+###  grid of values for the prior determined by $\tau$ as described in the paper
 tau_grid = c(.1,1,5,10)
 
 
@@ -15,16 +23,17 @@ source("utilis.R")
 
 
 ####  setting parameters for simulations
-T_grid   =   c(1100)
-d_grid = c(11)
+T_grid   =   c(1100)  ## time horizon
+d_grid = c(11)  ### number of bins = 2^d
 d=  11
-Total_rate_factor_grid = c(100/2^d,500/2^d,1000/2^d) 
-NMC = 100
+Total_rate_factor_grid = c(100/2^d,500/2^d,1000/2^d)  ## Total_rate_factor_grid*2^d  determins the rates of counts per second 
+NMC = 100  ### number of MC simulations to repeat each instance
 
 
 L = 50   ## window length for KS
 k_alpha = 3 ## KS
 
+### parameters to save threshoilds of different methods
 k_alpha_grid = c(1.36) ## this is changed later
 k_alpha_grid_old = k_alpha_grid
 k_alpha_grid_star  = k_alpha_grid
@@ -33,14 +42,12 @@ level_grid_dir = c(.9,.7,.5,.3)
 log_A_grid = rep(0,length(tau_grid)) ## this is changed later
 log_A_grid_mle = c(0) 
 
-size_prob  = .999### 1 - size_prob  is the probability of a false alarm
 
 
-tres_hold_KS = rep(0,length(k_alpha_grid))
-tres_hold_log_Rnf = rep(0,length(log_A_grid))
+size_prob  = .999### 1 -  ( the expected rate of false alarms in an interval of lenght 1000  divided by 1000)
+################### although passed as a parameter in some functions, this is not used.  code can be easily modified to make this relevant, see the file "utilis.R"
 
 
-#v = min(floor(runif(1)*T),T)
 ######################################################### ######################################   
 ind_T  = 1
 ind_d  = 1
@@ -49,29 +56,30 @@ T = T_grid[ind_T]
 d = d_grid[ind_d]
 
 
+####  Arrays to  save false alarm rates and detection times
 average_false_alarms_KS = array(0, c(length(T_grid),length(d_grid),length(Total_rate_factor_grid),length(k_alpha_grid)))
 average_false_alarms_PKS = array(0, c(length(T_grid),length(d_grid),length(Total_rate_factor_grid),length(k_alpha_grid_old)))
 average_false_alarms_Rnf = array(0, c(length(T_grid),length(d_grid),length(Total_rate_factor_grid),length(log_A_grid)))
 average_false_alarms_mle = array(0, c(length(T_grid),length(d_grid),length(Total_rate_factor_grid),length(log_A_grid_mle)))
 average_false_alarms_KS_star = array(0, c(length(T_grid),length(d_grid),length(Total_rate_factor_grid),length(k_alpha_grid_star)))
-
-
-
 average_delay_time_KS = array(0, c(length(T_grid),length(d_grid),length(Total_rate_factor_grid),length(k_alpha_grid)))
 average_delay_time_Rnf = array(0, c(length(T_grid),length(d_grid),length(Total_rate_factor_grid),length(log_A_grid)))
 average_delay_time_mle = array(0, c(length(T_grid),length(d_grid),length(Total_rate_factor_grid),length(log_A_grid_mle)))
 average_delay_time_PKS = array(0, c(length(T_grid),length(d_grid),length(Total_rate_factor_grid),length(k_alpha_grid_old)))
 average_delay_time_KS_star = array(0, c(length(T_grid),length(d_grid),length(Total_rate_factor_grid),length(k_alpha_grid_star)))
 
+##
+NN  =   100 ##  number of MC simulations to choose thresholds for different methods
+T2 = 1000  ###  time horizon for calibrating the threshold
 
-NN  =   100
-T2 = 1000  #
-
+### arrays to save samples to calibrate the flase alarm threshold
 ks =  matrix(0,NN,T2)
 rnf = array(0,c(length(tau_grid),NN,T2))
 mle_tr = matrix(0,NN,T2)
 pks = matrix(0,NN,T2)
 
+
+## beginning loops
 for(ind_T in 1:length(T_grid))
 {
   T = T_grid[ind_T]
@@ -89,8 +97,7 @@ for(ind_T in 1:length(T_grid))
       m = 2^d
       
       total_rate = m*Total_rate_factor
-      ###  Training period
-      
+
       
       ################################################################        
       ## KS^* threshold
@@ -101,15 +108,13 @@ for(ind_T in 1:length(T_grid))
       #       
       #       
       k_alpha_grid[1]  = 0
+      ## compute different sequence of statistics according to number of MC simulations NN
       for(ii in 1:NN)
       {
-        #bb = choose_tres_hold_KS(N = 1000,mu,sigma,total_rate, size_prob,L)
-        
         ks[ii, ]  = choose_tres_hold_KS(N = 1000,mu,sigma,total_rate, size_prob,L)
-        
-        # k_alpha_grid[1] = k_alpha_grid[1] + bb/10
       }
-      
+
+      ### proceed to choose threshold      
       lower = min(ks)
       upper = max(ks)
       
@@ -129,7 +134,7 @@ for(ind_T in 1:length(T_grid))
       jjj =  which.min(abs(Expected_false_alarms - 1))
       
       k_alpha_grid[1]  =  threshold_grid[jjj]
-      
+      ####  Do the same for the other methods next
       ################################################################      
       ### PKS tres_hold
       #       
@@ -246,16 +251,17 @@ for(ind_T in 1:length(T_grid))
           print("iter")
           print(iter) 
         }
-        
- 
+        ###  arrays to compute statistics for the different methods
         KS = rep(0,T) 
         PKS = rep(0,T) 
         log_Rnf = matrix(0,T,length(log_A_grid)) 
         log_mle = rep(0,T)
         KS_star = rep(0,T) 
         
+        ###  sequential arriving data is stored in x
         x =  matrix(0,T,total_rate)
         
+        ### change point
         v = 1001
         v_array[iter] = v
         
@@ -270,9 +276,9 @@ for(ind_T in 1:length(T_grid))
           if(t > v)
           { 
             x[t,] = rnorm(total_rate,mu_c,sigma)
-          } #rpois(length(theta0),lambdac_t)}
-          # ycounts =  gridCounts(x[t,],d)
+          } 
           
+          ###  compute statistics
           
           ## KS
           KS[t] = sequential_KS_statistics(x,t,mu,sigma,L)
@@ -325,8 +331,7 @@ for(ind_T in 1:length(T_grid))
         } 
         ## update delayed time            
         
-        
-        
+
         for(j in 1:length(k_alpha_grid))
         {
           ind2 = which(KS[(1+v):T] > k_alpha_grid[j])
@@ -380,6 +385,8 @@ for(ind_T in 1:length(T_grid))
         
         
       }## close for NMC simulations, iter
+      
+      ###  average false alarms and delay times
       
       for(j in 1:length(k_alpha_grid))
       {

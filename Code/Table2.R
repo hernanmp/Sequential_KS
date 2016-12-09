@@ -52,16 +52,17 @@ matplot(cbind(theta0,thetac),type="l")
 
 
 ####  setting parameters for simulations
-T_grid   =   c(700)
-d_grid = c(9,10,11)
-Total_rate_factor_grid = c(100/2^d,500/2^d,1000/2^d) #c(2,3,4)
-NMC = 100
+T_grid   =   c(700) ## time horizon
+d_grid = c(9,10,11)  ### number of bins = 2^d
+Total_rate_factor_grid = c(100/2^d,500/2^d,1000/2^d) ## Total_rate_factor_grid*2^d  determins the rates of counts per second 
+NMC = 100  ### number of MC simulations to repeat each instance
 
 
 
 L_grid = c(50)  ## window length for KS
-k_alpha = 3 ## KS
+k_alpha = 3 ## KS (not used)
 
+### parameters to save threshoilds of different methods
 k_alpha_grid = c(1.36) ## this is changed later
 k_alpha_grid_star  = c(1.36)
 level_grid_dir = c(.5) 
@@ -69,15 +70,9 @@ log_A_grid = c(0) ## this is changed later
 k_alpha_grid_old = c(1.36)
 tresd_hold_mle_grid = c(0)
 
-size_prob  = .999 ### 1 - size_prob  is the probability of a false alarm
-
-
-
-tres_hold_KS = rep(0,length(k_alpha_grid))
-tres_hold_KS_old = rep(0,length(k_alpha_grid_old))
-tres_hold_log_Rnf = rep(0,length(log_A_grid))
-tresd_hold_mle_grid = c(0)
-tres_hold_KS_star = rep(0,length(k_alpha_grid_star))
+## fixed value, actually it does not play a role in the code 
+size_prob  = .999 ### 1 -  ( the expected rate of false alarms in an interval of lenght 1000  divided by 1000)
+################### although passed as a parameter in some functions, this is not used.  code can be easily modified to make this relevant, see the file "Generate_data.R"
 
 
 ######################################################### ######################################   
@@ -86,6 +81,10 @@ ind_d  = 1
 ind_TRF = 1
 T = T_grid[ind_T]
 d = d_grid[ind_d]
+
+
+####  Arrays to  save false alarm rates and detection times
+
 
 average_false_alarms_KS_old = array(0, c(length(T_grid),length(d_grid),length(Total_rate_factor_grid),length(k_alpha_grid_old),length(L_grid)))
 average_false_alarms_KS = array(0, c(length(T_grid),length(d_grid),length(Total_rate_factor_grid),length(k_alpha_grid),length(L_grid)))
@@ -140,7 +139,6 @@ for(ind_L in 1:length(L_grid))
         
         ###  Training period
         temp = Training_period(ntraining = 1000,m,d,lambda0) 
-        #  F0 = temp$F0
         alpha = temp$alpha
 
         total_rate = temp$total_rate
@@ -150,8 +148,7 @@ for(ind_L in 1:length(L_grid))
         ###########################
         
         ################################################################  
-        
-        #       N = 500
+
         kappa_grid = 10^seq(-5,-1,length= 20)
         
         ################################################################        
@@ -162,13 +159,12 @@ for(ind_L in 1:length(L_grid))
         ################################################################      
         ## KS tres_hold
         NN =  100
-        #k_alpha_grid[1] = choose_tres_hold_KS(N = 1000,theta0_hat,total_rate,d,F0, size_prob,L)
+
         k_alpha_grid[1]  = 0
         KS = matrix(0,NN,1000)
         for(ii in 1:NN)
         {
           KS[ii,] =   new_choose_tres_hold_KS(N = 1000,theta0 ,total_rate,d,F0, size_prob,L)
-          # k_alpha_grid[1] = k_alpha_grid[1] + choose_tres_hold_KS(N = 1000,theta0_hat,total_rate,d,F0, size_prob,L)/20
         }
         lower = min(KS)
         upper = max(KS)
@@ -308,16 +304,19 @@ for(ind_L in 1:length(L_grid))
             print("iter")
             print(iter) 
           }
-          
+          ###  arrays to compute statistics for the different methods
           KS = rep(0,T) 
           KS_old = rep(0,T) 
           log_Rnf = rep(0,T) 
           mle = rep(0,T) 
+          ###  sequential arriving data is stored in x
           x =  matrix(0,T,m)
           
+          ### change point
           v = min(floor( runif(1)*((T-1-100)-100) + 100    ),T)
           v_array[iter] = v
           
+          ## cumulative sum of counts
           cum_x = rep(0,length(lambda0))
           
           
@@ -337,6 +336,8 @@ for(ind_L in 1:length(L_grid))
               x[t,] = rpois(length(theta0),lambdac_t)
             } 
             
+            ### compute statistics
+            
             cum_x = cum_x + x[t,]
             
             KS_old[t] =  sqrt(sum(cum_x))*kolmogorov_statistic(cum_x,F0)
@@ -352,6 +353,8 @@ for(ind_L in 1:length(L_grid))
             
           }## close for 1:T      
           proc.time() - ptm
+          
+          ###  update false alarms
           
           for(j in 1:length(k_alpha_grid))
           {
@@ -431,6 +434,9 @@ for(ind_L in 1:length(L_grid))
           }
           
         }## close for NMC simulations, iter
+        
+        
+        ###   compute average false alarms and delayed times
         
         for(j in 1:length(k_alpha_grid_old))
         {
